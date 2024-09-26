@@ -46,7 +46,7 @@ def main():
     torch.backends.cudnn.benchmark = True
 
     # setup your torchvision/anyother transforms here. This is for adding noise/perspective transforms and other changes to the patch
-    train_transform = 
+    # train_transform = 
     
     train_set = LoadFromImageFile(
         args.data_root,
@@ -54,7 +54,7 @@ def main():
         seed=args.seed,
         train=True,
         monocular=True,
-        transform=train_transform,
+        # transform=train_transform,
         extension=".jpg"
     )
 
@@ -103,7 +103,7 @@ def main():
                 patch, mask = patch_cpu.cuda(), mask_cpu.cuda()
 
                 # transform patch and maybe the mask corresponding to the transformed patch(binary iamge)
-                patch_t, mask_t
+                # patch_t, mask_t
 
                 # apply transformed patch to clean image
                 
