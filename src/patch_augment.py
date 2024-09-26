@@ -81,75 +81,76 @@ def save_image(tensor: torch.Tensor, file_path: str):
     # image_pil.save(file_path)
     # print(f"Image saved to {file_path}")
 
+if __name__ == "__main__":
 
-image = Image.open("Src/input_img/test_image.jpg")
-image = F.to_tensor(image)
+    image = Image.open("Src/input_img/test_image.jpg")
+    image = F.to_tensor(image)
 
-patch_size = (3, 256, 256)
-padding = (patch_size[1] // 2, patch_size[2] // 2)
+    patch_size = (3, 256, 256)
+    padding = (patch_size[1] // 2, patch_size[2] // 2)
 
-vanilla_results = []
-perspective_results = []
-affine_results = []
-color_jitter_results = []
+    vanilla_results = []
+    perspective_results = []
+    affine_results = []
+    color_jitter_results = []
 
-for i in range(100):
-    print(f"Run {i + 1}/100")
+    for i in range(100):
+        print(f"Run {i + 1}/100")
 
-    patch = torch.rand(patch_size, requires_grad=True)
-    original_patch = patch.clone()
-    save_image(patch, "random_patch.png")
-    mask = torch.ones_like(patch)
-    patched_image, time_taken = apply_patch_to_image(image, patch, mask)
-    save_image(patched_image, "patched_image.png")
-    vanilla_results.append(time_taken)
+        patch = torch.rand(patch_size, requires_grad=True)
+        original_patch = patch.clone()
+        save_image(patch, "random_patch.png")
+        mask = torch.ones_like(patch)
+        patched_image, time_taken = apply_patch_to_image(image, patch, mask)
+        save_image(patched_image, "patched_image.png")
+        vanilla_results.append(time_taken)
 
-    perspective_transform = T.RandomPerspective(distortion_scale=0.5, p=1.0)
-    padded_patch = pad_patch(original_patch.clone(), padding)
-    patch = perspective_transform(padded_patch)
-    cropped_patch = crop_patch(patch, patch_size)
-    # mask = torch.ones_like(patch)
-    alpha_mask = create_alpha_mask(patch)  # to avoid black pixels
-    patched_image, time_taken = apply_patch_to_image(image, patch, alpha_mask)
-    save_image(patched_image, "patched_image_perspective.png")
-    perspective_results.append(time_taken)
+        perspective_transform = T.RandomPerspective(distortion_scale=0.5, p=1.0)
+        padded_patch = pad_patch(original_patch.clone(), padding)
+        patch = perspective_transform(padded_patch)
+        cropped_patch = crop_patch(patch, patch_size)
+        # mask = torch.ones_like(patch)
+        alpha_mask = create_alpha_mask(patch)  # to avoid black pixels
+        patched_image, time_taken = apply_patch_to_image(image, patch, alpha_mask)
+        save_image(patched_image, "patched_image_perspective.png")
+        perspective_results.append(time_taken)
 
-    affine_transform = T.RandomAffine(degrees=45, scale=(0.8, 1.2))
-    padded_patch = pad_patch(original_patch.clone(), padding)
-    patch = affine_transform(padded_patch)
-    cropped_patch = crop_patch(patch, patch_size)
-    # mask = torch.ones_like(patch)
-    alpha_mask = create_alpha_mask(patch)  # to avoid black pixels
-    patched_image, time_taken = apply_patch_to_image(image, patch, alpha_mask)
-    save_image(patched_image, "patched_image_affine.png")
-    affine_results.append(time_taken)
+        affine_transform = T.RandomAffine(degrees=45, scale=(0.8, 1.2))
+        padded_patch = pad_patch(original_patch.clone(), padding)
+        patch = affine_transform(padded_patch)
+        cropped_patch = crop_patch(patch, patch_size)
+        # mask = torch.ones_like(patch)
+        alpha_mask = create_alpha_mask(patch)  # to avoid black pixels
+        patched_image, time_taken = apply_patch_to_image(image, patch, alpha_mask)
+        save_image(patched_image, "patched_image_affine.png")
+        affine_results.append(time_taken)
 
-    color_jitter = T.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)
-    patch = color_jitter(original_patch)
-    mask = torch.ones_like(patch)
-    patched_image, time_taken = apply_patch_to_image(image, patch, mask)
-    save_image(patched_image, "patched_image_color_jitter.png")
-    color_jitter_results.append(time_taken)
+        color_jitter = T.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)
+        patch = color_jitter(original_patch)
+        mask = torch.ones_like(patch)
+        patched_image, time_taken = apply_patch_to_image(image, patch, mask)
+        save_image(patched_image, "patched_image_color_jitter.png")
+        color_jitter_results.append(time_taken)
 
-average_time = (
-    sum(vanilla_results)
-    + sum(perspective_results)
-    + sum(affine_results)
-    + sum(color_jitter_results)
-) / (
-    len(vanilla_results)
-    + len(perspective_results)
-    + len(affine_results)
-    + len(color_jitter_results)
-)
-print(f"Average time taken: {average_time:.4f} seconds")
+    average_time = (
+        sum(vanilla_results)
+        + sum(perspective_results)
+        + sum(affine_results)
+        + sum(color_jitter_results)
+    ) / (
+        len(vanilla_results)
+        + len(perspective_results)
+        + len(affine_results)
+        + len(color_jitter_results)
+    )
+    print(f"Average time taken: {average_time:.4f} seconds")
 
-vanilla_time = sum(vanilla_results) / len(vanilla_results)
-perspective_time = sum(perspective_results) / len(perspective_results)
-affine_time = sum(affine_results) / len(affine_results)
-color_jitter_time = sum(color_jitter_results) / len(color_jitter_results)
+    vanilla_time = sum(vanilla_results) / len(vanilla_results)
+    perspective_time = sum(perspective_results) / len(perspective_results)
+    affine_time = sum(affine_results) / len(affine_results)
+    color_jitter_time = sum(color_jitter_results) / len(color_jitter_results)
 
-print(f"Vanilla time: {vanilla_time:.4f} seconds")
-print(f"Perspective time: {perspective_time:.4f} seconds")
-print(f"Affine time: {affine_time:.4f} seconds")
-print(f"Color jitter time: {color_jitter_time:.4f} seconds")
+    print(f"Vanilla time: {vanilla_time:.4f} seconds")
+    print(f"Perspective time: {perspective_time:.4f} seconds")
+    print(f"Affine time: {affine_time:.4f} seconds")
+    print(f"Color jitter time: {color_jitter_time:.4f} seconds")

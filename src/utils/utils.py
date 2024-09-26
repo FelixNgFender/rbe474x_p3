@@ -2,6 +2,8 @@ import os
 import time
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
+import cv2
 
 def makedirs(save_path):
     os.makedirs(save_path, exist_ok=True)
@@ -41,4 +43,26 @@ def get_printability_array(self, printability_file, side):
     pa = torch.from_numpy(printability_array)
     return pa
 
-def get_nps_score(patch, file):
+# def get_nps_score(patch, file):
+
+def visualize_disparity(img, disp):
+    img = img.detach().cpu().numpy()
+    disp = disp.detach().squeeze().cpu().numpy()
+    # disp = disp.resize(disp.shape[1], disp.shape[0]).cpu().numpy()
+    img = np.resize(img, (img.shape[2], img.shape[1], img.shape[0]))
+
+    # disparity_np = np.reshape(disparity_np, (disparity_np.shape[1], disparity_np.shape[0]))
+    # Normalize the disparity map to 0-255
+    disp_normalized = cv2.normalize(disp, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+
+    # Apply a color map for better visualization
+    disp_color = cv2.applyColorMap(disp_normalized, cv2.COLORMAP_PLASMA)
+
+    cv2.imshow('Disparity', disp_color)
+    cv2.imshow('Image', img)
+    cv2.waitKey(0)
+
+
+    # plt.imshow(disp, cmap='jet')
+    # plt.colorbar()  
+    # plt.show()

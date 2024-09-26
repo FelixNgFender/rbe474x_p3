@@ -53,7 +53,9 @@ class LoadFromImageFile(BaseDataset):
             image = self.load_image(image_path)
             image = np.expand_dims(image, axis=0)
             if self.transform is not None:
+                # print('hi', image.shape)
                 image = self.transform(image)
+                # print(image.shape)
             sample = {"left": image[0]}
         else:
             left_fn, right_fn = self.image_file_list[idx]

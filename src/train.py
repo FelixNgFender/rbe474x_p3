@@ -10,6 +10,7 @@ from models.adversarial_models import AdversarialModels
 from utils.dataloader import LoadFromImageFile
 from utils.utils import makedirs, to_cuda_vars, format_time
 from patch_augment import *
+from utils.utils import *
 from tqdm import tqdm
 import warnings
 warnings.simplefilter('ignore')
@@ -46,7 +47,12 @@ def main():
     torch.backends.cudnn.benchmark = True
 
     # setup your torchvision/anyother transforms here. This is for adding noise/perspective transforms and other changes to the patch
-    # train_transform = 
+    transform = T.Compose([
+        T.ToTensor(),
+        T.Resize((args.width, args.height)),
+    ])
+    
+    train_transform = T.Lambda(lambda x: torch.stack([transform(image) for image in x], dim=0).to(x.device))
     
     train_set = LoadFromImageFile(
         args.data_root,
@@ -54,12 +60,12 @@ def main():
         seed=args.seed,
         train=True,
         monocular=True,
-        # transform=train_transform,
-        extension=".jpg"
+        transform=train_transform,
+        extension=".png"
     )
 
     train_loader = torch.utils.data.DataLoader(
-        dataset=train_set,
+        dataset=train_set,  
         batch_size=args.batch_size,
         shuffle=True,
         num_workers=args.num_threads,
@@ -97,19 +103,25 @@ def main():
         for i_batch, sample in tqdm(enumerate(train_loader), desc=f'Running epoch {epoch}', total=len(train_loader), leave=False):
             with torch.autograd.detect_anomaly():
                 sample = to_cuda_vars(sample)  # send item to gpu
+                # print('left', sample['left'].shape)
                 sample.update(models.get_original_disp(sample))  # get non-attacked disparity
 
                 img, original_disp = sample['left'], sample['original_distill_disp']
+                print('thing', img.shape, original_disp.shape)
+                visualize_disparity(img[0], original_disp[0])
                 patch, mask = patch_cpu.cuda(), mask_cpu.cuda()
 
                 # transform patch and maybe the mask corresponding to the transformed patch(binary iamge)
-                # patch_t, mask_t
+                patch_t, mask_t = patch, mask
 
                 # apply transformed patch to clean image
-                
 
                 # Loss
                 # calculate the loss function here
+                nps_loss = torch.tensor(0.0, requires_grad=True)
+                tv_loss = torch.tensor(0.0, requires_grad=True)
+                disp_loss = torch.tensor(0.0, requires_grad=True)
+                loss = torch.tensor(0.0, requires_grad=True)
 
                 ep_nps_loss += nps_loss.detach().cpu().numpy()
                 ep_tv_loss += tv_loss.detach().cpu().numpy()
