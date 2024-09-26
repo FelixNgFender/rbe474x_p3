@@ -1,4 +1,6 @@
 import torch
+import torchvision.transforms.functional as F
+import torchvision.transforms as T
 import argparse
 import cv2
 import numpy as np
@@ -7,6 +9,7 @@ import os
 from models.adversarial_models import AdversarialModels
 from utils.dataloader import LoadFromImageFile
 from utils.utils import makedirs, to_cuda_vars, format_time
+from patch_augment import *
 from tqdm import tqdm
 import warnings
 warnings.simplefilter('ignore')
@@ -71,6 +74,12 @@ def main():
 
     # Patch and Mask
     # Initialize a random patch image
+    patch_size = (3, 256, 256)
+    padding = (patch_size[1] // 2, patch_size[2] // 2)
+    patch_cpu = torch.rand(patch_size, requires_grad=True)
+    
+    # Initialize a mask
+    mask_cpu = create_alpha_mask(patch_cpu)
     
     # Optimizer
     # pass the patch to the optimizer
