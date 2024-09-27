@@ -1,6 +1,3 @@
-import torch
-import torchvision.transforms.functional as F
-import torchvision.transforms as T
 import argparse
 import cv2
 import numpy as np
@@ -13,6 +10,11 @@ from patch_augment import *
 from utils.utils import *
 
 from torch import nn
+
+import torch
+import torchvision.transforms.functional as F
+import torchvision.transforms as T
+
 from tqdm import tqdm
 import warnings
 warnings.simplefilter('ignore')
@@ -88,6 +90,7 @@ def main():
     
     # Initialize a mask
     mask_cpu = create_alpha_mask(patch_cpu)
+    colors = get_printable_colors(args.print_file)
     
     # Optimizer
     # pass the patch to the optimizer
@@ -110,7 +113,7 @@ def main():
 
                 img, original_disp = sample['left'], sample['original_distill_disp']
                 print('thing', img.shape, original_disp.shape)
-                visualize_disparity(img[0], original_disp[0])
+                # visualize_disparity(img, original_disp[0])
                 patch, mask = patch_cpu.cuda(), mask_cpu.cuda()
 
                 # transform patch and maybe the mask corresponding to the transformed patch(binary iamge)
@@ -119,13 +122,16 @@ def main():
                 # apply transformed patch to clean image
 
                 # Loss
+                
+
                 # calculate the loss function here
-                nps_calc = NPSCalculator(args.print_file, args.height)
+                nps_calc = NPSCalculator(args.print_file, 256)
 
                 nps_loss = nps_calc(patch_t)
-                tv_loss = torch.tensor(0.0, requires_grad=True)
-                disp_loss = torch.tensor(0.0, requires_grad=True)
-                loss = torch.tensor(0.0, requires_grad=True)
+                tv_loss = get_tv_loss(patch)
+                disp_loss = get_disp_loss(original_disp, mask_t, args.target_disp)
+                # constants taken from paper
+                loss = disp_loss + nps_loss * 0.01 + torch.max(tv_loss, torch.tensor(0.1).cuda()) * 2.5
 
                 ep_nps_loss += nps_loss.detach().cpu().numpy()
                 ep_tv_loss += tv_loss.detach().cpu().numpy()
@@ -161,78 +167,6 @@ def main():
         np.save(save_path + '/epoch_{}_patch.npy'.format(str(epoch)), patch_cpu.data.numpy())
         np.save(save_path + '/epoch_{}_mask.npy'.format(str(epoch)), mask_cpu.data.numpy())
 
-# def get_printable_colors(file):
-#     colors = []
-#     with open(file) as f:
-#         for line in f:
-#             # print(line.split(","), type(line.split(",")))
-#             r, g, b = line.split(",")
-#             b = b.strip() # Remove the newline character
-#             colors.append(np.array([r, g, b], dtype=np.float32))
-
-#     colors = torch.Tensor(colors)
-#     return colors
-
-# def get_nps_score(patch : torch.Tensor, colors):
-#     colors = colors.to(patch.device)
-#     # print(colors.device, patch.device)
-    
-#     # Slow Implementation
-#     loss = 0
-#     t = time.time()
-#     for y, x in zip(range(patch.shape[1]), range(patch.shape[2])):
-#         loss += min([torch.norm(patch[:, y, x] - color) for color in colors])
-#     print('Time taken for NPS Loss:', time.time() - t)
-
-#     return loss
-
-class NPSCalculator(nn.Module):
-    """NMSCalculator: calculates the non-printability score of a patch.
-
-    Module providing the functionality necessary to calculate the non-printability score (NMS) of an adversarial patch.
-
-    """
-    
-    def __init__(self, printability_file, img_size):
-        super(NPSCalculator, self).__init__()
-        self.printability_array = nn.Parameter(self.get_printability_array(printability_file, img_size),
-                                               requires_grad=False)
-    
-    def forward(self, adv_patch):
-        # calculate euclidian distance between colors in patch and colors in printability_array
-        # square root of sum of squared difference
-        color_dist = (adv_patch - self.printability_array.cuda() + 0.000001)
-        color_dist = color_dist ** 2
-        color_dist = torch.sum(color_dist, 1) + 0.000001
-        color_dist = torch.sqrt(color_dist)
-        # only work with the min distance
-        color_dist_prod = torch.min(color_dist, 0)[0]  # test: change prod for min (find distance to closest color)
-        # calculate the nps by summing over all pixels
-        nps_score = torch.sum(color_dist_prod, 0)
-        nps_score = torch.sum(nps_score, 0)
-        return nps_score / torch.numel(adv_patch)
-    
-    def get_printability_array(self, printability_file, side):
-        printability_list = []
-        
-        # read in printability triplets and put them in a list
-        with open(printability_file) as f:
-            for line in f:
-                printability_list.append(line.split(","))
-        
-        printability_array = []
-        for printability_triplet in printability_list:
-            printability_imgs = []
-            red, green, blue = printability_triplet
-            printability_imgs.append(np.full((side, side), red))
-            printability_imgs.append(np.full((side, side), green))
-            printability_imgs.append(np.full((side, side), blue))
-            printability_array.append(printability_imgs)
-        
-        printability_array = np.asarray(printability_array)
-        printability_array = np.float32(printability_array)
-        pa = torch.from_numpy(printability_array)
-        return pa
 
 if __name__ == '__main__':
     main()
