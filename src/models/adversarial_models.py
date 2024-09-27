@@ -51,6 +51,7 @@ class DistillModel(torch.nn.Module):
                     param.requires_grad = False
 
     def forward(self, input_img):
+        # print(input_img.shape)
         disp_ests = self.model(input_img)
         return disp_ests[0]
 

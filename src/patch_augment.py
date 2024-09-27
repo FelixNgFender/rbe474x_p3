@@ -53,7 +53,7 @@ def apply_patch_to_image(
     patched_image[:, :, y : y + patch_h, x : x + patch_w] = (1 - mask) * image[
         :, :, y : y + patch_h, x : x + patch_w
     ] + mask * patch
-    # print('hi', patched_image.shape)
+
     return patched_image
 
 

@@ -118,7 +118,8 @@ def main():
                 patch_t, mask_t = patch, mask
 
                 # apply transformed patch to clean image
-                patched_img = apply_patch_to_image(img, patch_t, mask_t)
+                patched_img = apply_patch_to_image(img, patch_t, mask_t)[0]
+                # print(patched_img.shape)
                 est_disp = models.distill(patched_img)
 
                 # Loss
