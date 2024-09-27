@@ -110,7 +110,7 @@ def main():
                 sample.update(models.get_original_disp(sample))  # get non-attacked disparity
 
                 img, original_disp = sample['left'], sample['original_distill_disp']
-                print('thing', img.shape, original_disp.shape)
+                # print('thing', img.shape, original_disp.shape)
                 # visualize_disparity(img, original_disp[0])
                 patch, mask = patch_cpu.cuda(), mask_cpu.cuda()
 
@@ -118,6 +118,8 @@ def main():
                 patch_t, mask_t = patch, mask
 
                 # apply transformed patch to clean image
+                patched_img = apply_patch_to_image(img, patch_t, mask_t)
+                est_disp = models.distill(patched_img)
 
                 # Loss
                 
@@ -127,7 +129,7 @@ def main():
 
                 nps_loss = nps_calc(patch_t)
                 tv_loss = get_tv_loss(patch)
-                disp_loss = get_disp_loss(original_disp, mask_t, args.target_disp)
+                disp_loss = get_disp_loss(original_disp, est_disp, mask_t, args.target_disp)
                 # constants taken from paper
                 loss = disp_loss + nps_loss * 0.01 + torch.max(tv_loss, torch.tensor(0.1).cuda()) * 2.5
 

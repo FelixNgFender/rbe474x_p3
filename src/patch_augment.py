@@ -29,14 +29,14 @@ def apply_patch_to_image(
     Applies the patch to a small, random part of the image based on the mask.
 
     Args:
-    - image: the original image tensor (C, H, W).
+    - image: the original image tensor (B, C, H, W).
     - patch: the patch tensor (C, h, w) (smaller than the image).
     - mask: the mask tensor (same shape as the patch, binary values 0 or 1).
 
     Returns:
     - The image with the patch applied at the given location.
     """
-    img_c, img_h, img_w = image.shape
+    B, img_c, img_h, img_w = image.shape
     patch_c, patch_h, patch_w = patch.shape
 
     if patch_c != img_c:
@@ -50,10 +50,10 @@ def apply_patch_to_image(
     y = random.randint(0, img_h - patch_h)
 
     patched_image = image.clone()
-    patched_image[:, y : y + patch_h, x : x + patch_w] = (1 - mask) * image[
-        :, y : y + patch_h, x : x + patch_w
+    patched_image[:, :, y : y + patch_h, x : x + patch_w] = (1 - mask) * image[
+        :, :, y : y + patch_h, x : x + patch_w
     ] + mask * patch
-
+    # print('hi', patched_image.shape)
     return patched_image
 
 

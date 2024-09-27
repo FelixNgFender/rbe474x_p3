@@ -98,16 +98,18 @@ def get_nps_score(patch : torch.Tensor, colors):
 
     return loss
 
-def get_tv_loss(patch):
+def get_tv_loss(patch: torch.Tensor):
     # print(patch.shape)
-    x = patch[:, :, :-1] - patch[:, :, 1:]
-    y = patch[:, :-1, :] - patch[:, 1:, :]
+    x = (patch[:, :, :-1] - patch[:, :, 1:]).flatten(-2)
+    y = (patch[:, :-1, :] - patch[:, 1:, :]).flatten(-2)
     TV = torch.sum(torch.sqrt(x ** 2 + y ** 2))
     return TV
 
-def get_disp_loss(disp, mask, target_disp):
+def get_disp_loss(disp, est_disp, mask, target_disp):
+    print(disp.shape, mask.shape, target_disp)
+    mask = mask.unsqueeze(0)
     fake_disp = torch.mul((1 - mask), disp) + torch.mul(mask, target_disp)
-    loss = torch.nn.functional.l1_loss(torch.mul(mask, fake_disp), torch.mul(mask, disp)).mean()
+    loss = torch.nn.functional.l1_loss(torch.mul(mask, fake_disp), torch.mul(mask, est_disp)).mean()
     return loss
     
 
