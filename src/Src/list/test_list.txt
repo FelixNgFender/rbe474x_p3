@@ -1,4 +1,4 @@
-test_scene1.jpg
-test_scene2.jpg
-test_scene3.jpg
-test_scene4.jpg
+test_image.png
+test_image2.png
+test_image3.png
+test_image4.png
