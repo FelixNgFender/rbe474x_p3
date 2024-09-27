@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import cv2
 import torchvision.transforms.functional as T
 import torch.nn.functional as F
+from torch import nn
 
 def makedirs(save_path):
     os.makedirs(save_path, exist_ok=True)

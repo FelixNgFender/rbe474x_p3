@@ -9,8 +9,6 @@ from utils.utils import makedirs, to_cuda_vars, format_time
 from patch_augment import *
 from utils.utils import *
 
-from torch import nn
-
 import torch
 import torchvision.transforms.functional as F
 import torchvision.transforms as T
