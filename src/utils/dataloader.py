@@ -40,7 +40,7 @@ class LoadFromImageFile(BaseDataset):
         self.monocular = monocular
         self.extension = extension
         if train:
-            print('=> Load {} images from the pathes listed in {}'.format(len(self.image_file_list), self.root + "/" + filenames_file))
+            print('=> Load {} images from the paths listed in {}'.format(len(self.image_file_list), self.root + "/" + filenames_file))
 
     def __getitem__(self, idx):
         if self.monocular:

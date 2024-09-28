@@ -1,4 +1,3 @@
-import random
 from functools import wraps
 import time
 import torch
@@ -22,45 +21,44 @@ def timeit(func):
 
 
 @timeit
-def apply_patch_to_image(
-    image: torch.Tensor, patch: torch.Tensor, mask: torch.Tensor
+def apply_patch_to_images(
+    images: torch.Tensor, padded_patch: torch.Tensor, mask: torch.Tensor
 ) -> torch.Tensor:
     """
-    Applies the patch to a small, random part of the image based on the mask.
+    Applies the patch to a batch of images.
 
     Args:
-    - image: the original image tensor (B, C, H, W).
-    - patch: the patch tensor (C, h, w) (smaller than the image).
-    - mask: the mask tensor (same shape as the patch, binary values 0 or 1).
+    - images: the original batch of images tensor (B, C, H, W).
+    - padded_patch: the padded patch tensor (C, H, W) (same size as the images).
+    - mask: the mask tensor (C, H, W) (same size as the images).
 
     Returns:
-    - The image with the patch applied at the given location.
+    - The batch of images with the patch applied.
     """
-    B, img_c, img_h, img_w = image.shape
-    patch_c, patch_h, patch_w = patch.shape
+    # if images.shape[2:] != padded_patch.shape[1:]:
+    #     raise ValueError("Image and patch must have the same shape.")
 
-    if patch_c != img_c:
+    # patched_image = images.clone()
+    # mask = torch.ones_like(padded_patch)
+    # mask[padded_patch == 0] = 0
+    # patched_image = torch.mul((1 - mask), images) + torch.mul(mask, padded_patch)
+
+    # return patched_image
+    B, C, H, W = images.shape
+    patch_c, patch_h, patch_w = padded_patch.shape
+
+    if (patch_c, patch_h, patch_w) != (C, H, W):
         raise ValueError(
-            f"Patch and image must have the same number of channels. Image has {img_c}, patch has {patch_c}"
+            f"Patch must have the same shape as the images (excluding batch size). "
+            f"Expected {(C, H, W)}, but got {(patch_c, patch_h, patch_w)}."
         )
-    if patch_h > img_h or patch_w > img_w:
-        raise ValueError("Patch size must be smaller than or equal to the image size.")
 
-    x = random.randint(0, img_w - patch_w)
-    y = random.randint(0, img_h - patch_h)
+    stacked_patches = torch.stack([padded_patch] * B, dim=0)
+    stacked_masks = torch.stack([mask] * B, dim=0)
 
-    patched_image = image.clone()
-    patched_image[:, :, y : y + patch_h, x : x + patch_w] = (1 - mask) * image[
-        :, :, y : y + patch_h, x : x + patch_w
-    ] + mask * patch
+    patched_images = (1 - stacked_masks) * images + stacked_masks * stacked_patches
 
-    return patched_image
-
-
-def create_alpha_mask(patch: torch.Tensor) -> torch.Tensor:
-    alpha_mask = torch.ones_like(patch)
-    alpha_mask[patch == 0] = 0
-    return alpha_mask
+    return patched_images
 
 
 def pad_patch(patch: torch.Tensor, padding: list[int]) -> torch.Tensor:
@@ -81,76 +79,77 @@ def save_image(tensor: torch.Tensor, file_path: str):
     # image_pil.save(file_path)
     # print(f"Image saved to {file_path}")
 
-if __name__ == "__main__":
 
-    image = Image.open("Src/input_img/test_image.jpg")
-    image = F.to_tensor(image)
+# if __name__ == "__main__":
+#     image = Image.open("Src/input_img/test_image.jpg")
+#     image = F.to_tensor(image)
 
-    patch_size = (3, 256, 256)
-    padding = (patch_size[1] // 2, patch_size[2] // 2)
+#     patch_size = (3, 256, 256)
+#     padding = (patch_size[1] // 2, patch_size[2] // 2)
 
-    vanilla_results = []
-    perspective_results = []
-    affine_results = []
-    color_jitter_results = []
+#     vanilla_results = []
+#     perspective_results = []
+#     affine_results = []
+#     color_jitter_results = []
 
-    for i in range(100):
-        print(f"Run {i + 1}/100")
+#     for i in range(100):
+#         print(f"Run {i + 1}/100")
 
-        patch = torch.rand(patch_size, requires_grad=True)
-        original_patch = patch.clone()
-        save_image(patch, "random_patch.png")
-        mask = torch.ones_like(patch)
-        patched_image, time_taken = apply_patch_to_image(image, patch, mask)
-        save_image(patched_image, "patched_image.png")
-        vanilla_results.append(time_taken)
+#         patch = torch.rand(patch_size, requires_grad=True)
+#         original_patch = patch.clone()
+#         save_image(patch, "random_patch.png")
+#         patched_image, time_taken = apply_patch_to_image(image, patch)
+#         save_image(patched_image, "patched_image.png")
+#         vanilla_results.append(time_taken)
 
-        perspective_transform = T.RandomPerspective(distortion_scale=0.5, p=1.0)
-        padded_patch = pad_patch(original_patch.clone(), padding)
-        patch = perspective_transform(padded_patch)
-        cropped_patch = crop_patch(patch, patch_size)
-        # mask = torch.ones_like(patch)
-        alpha_mask = create_alpha_mask(patch)  # to avoid black pixels
-        patched_image, time_taken = apply_patch_to_image(image, patch, alpha_mask)
-        save_image(patched_image, "patched_image_perspective.png")
-        perspective_results.append(time_taken)
+#         perspective_transform = T.RandomPerspective(distortion_scale=0.5, p=1.0)
+#         padded_patch = pad_patch(original_patch.clone(), padding)
+#         patch = perspective_transform(padded_patch)
+#         cropped_patch = crop_patch(patch, patch_size)
+#         # mask = torch.ones_like(patch)
+#         alpha_mask = create_alpha_mask(patch)  # to avoid black pixels
+#         patched_image, time_taken = apply_patch_to_image(image, patch)
+#         save_image(patched_image, "patched_image_perspective.png")
+#         perspective_results.append(time_taken)
 
-        affine_transform = T.RandomAffine(degrees=45, scale=(0.8, 1.2))
-        padded_patch = pad_patch(original_patch.clone(), padding)
-        patch = affine_transform(padded_patch)
-        cropped_patch = crop_patch(patch, patch_size)
-        # mask = torch.ones_like(patch)
-        alpha_mask = create_alpha_mask(patch)  # to avoid black pixels
-        patched_image, time_taken = apply_patch_to_image(image, patch, alpha_mask)
-        save_image(patched_image, "patched_image_affine.png")
-        affine_results.append(time_taken)
+#         affine_transform = T.RandomAffine(degrees=45, scale=(0.8, 1.2))
+#         padded_patch = pad_patch(original_patch.clone(), padding)
+#         patch = affine_transform(padded_patch)
+#         cropped_patch = crop_patch(patch, patch_size)
+#         # mask = torch.ones_like(patch)
+#         alpha_mask = create_alpha_mask(patch)  # to avoid black pixels
+#         patched_image, time_taken = apply_patch_to_image(image, patch)
+#         save_image(patched_image, "patched_image_affine.png")
+#         affine_results.append(time_taken)
 
-        color_jitter = T.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)
-        patch = color_jitter(original_patch)
-        mask = torch.ones_like(patch)
-        patched_image, time_taken = apply_patch_to_image(image, patch, mask)
-        save_image(patched_image, "patched_image_color_jitter.png")
-        color_jitter_results.append(time_taken)
+#         color_jitter = T.ColorJitter(
+#             brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1
+#         )
+#         patch = color_jitter(original_patch)
+#         mask = torch.ones_like(patch)
+#         patched_image, time_taken = apply_patch_to_image(image, patch)
+#         save_image(patched_image, "patched_image_color_jitter.png")
+#         color_jitter_results.append(time_taken)
 
-    average_time = (
-        sum(vanilla_results)
-        + sum(perspective_results)
-        + sum(affine_results)
-        + sum(color_jitter_results)
-    ) / (
-        len(vanilla_results)
-        + len(perspective_results)
-        + len(affine_results)
-        + len(color_jitter_results)
-    )
-    print(f"Average time taken: {average_time:.4f} seconds")
+#     average_time = (
+#         sum(vanilla_results)
+#         + sum(perspective_results)
+#         + sum(affine_results)
+#         + sum(color_jitter_results)
+#     ) / (
+#         len(vanilla_results)
+#         + len(perspective_results)
+#         + len(affine_results)
+#         + len(color_jitter_results)
+#     )
+#     print(f"Average time taken: {average_time:.4f} seconds")
 
-    vanilla_time = sum(vanilla_results) / len(vanilla_results)
-    perspective_time = sum(perspective_results) / len(perspective_results)
-    affine_time = sum(affine_results) / len(affine_results)
-    color_jitter_time = sum(color_jitter_results) / len(color_jitter_results)
+#     vanilla_time = sum(vanilla_results) / len(vanilla_results)
+#     perspective_time = sum(perspective_results) / len(perspective_results)
+#     affine_time = sum(affine_results) / len(affine_results)
+#     color_jitter_time = sum(color_jitter_results) / len(color_jitter_results)
 
-    print(f"Vanilla time: {vanilla_time:.4f} seconds")
-    print(f"Perspective time: {perspective_time:.4f} seconds")
-    print(f"Affine time: {affine_time:.4f} seconds")
-    print(f"Color jitter time: {color_jitter_time:.4f} seconds")
+#     print(f"Vanilla time: {vanilla_time:.4f} seconds")
+#     print(f"Perspective time: {perspective_time:.4f} seconds")
+#     print(f"Affine time: {affine_time:.4f} seconds")
+#     print(f"Color jitter time: {color_jitter_time:.4f} seconds")
