@@ -78,11 +78,11 @@ def main():
     )
     mask_transform = T.Compose(
         [
-            T.RandomPerspective(distortion_scale=0.8, p=1.0),
-            T.RandomAffine(degrees=45, scale=(0.5, 2), translate=(0.5, 0.5)),
+            T.RandomPerspective(distortion_scale=0.1, p=0.8),
+            T.RandomAffine(degrees=20, scale=(0.1225, 0.2025), translate=(0.1, 0.1)),
         ]
     )
-    patch_jitter = T.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3)
+    patch_jitter = T.ColorJitter(brightness=(0.95, 1.05), contrast=(0.9, 1.1), saturation=0.3, hue=0.3)
         
 
     train_transform = T.Lambda(
@@ -132,6 +132,9 @@ def main():
     print("Start training ...")
     start_time = time.time()
 
+    plt.ion()  # Interactive mode on
+    fig, ax = plt.subplots()
+
     # save loss values for plotting
     epoch_loss = []
     epoch_disp_loss = []
@@ -140,6 +143,11 @@ def main():
     for epoch in range(args.num_epochs):
         ep_nps_loss, ep_tv_loss, ep_loss, ep_disp_loss = 0, 0, 0, 0
         ep_time = time.time()
+
+        
+        losses = []
+        tv_losses = []
+        disp_losses = []
 
         for i_batch, sample in tqdm(
             enumerate(train_loader),
@@ -180,16 +188,21 @@ def main():
                 patch_t, mask_t = patch_and_mask_t[0], patch_and_mask_t[1]
                 
                 #turn this off for now
-                # patch_t = patch_jitter(patch_t)
+                patch_t = patch_jitter(patch_t)
 
                 # apply transformed patch to clean image
                 patched_img = apply_patch_to_images(img, patch_t, mask_t)[0]
                 # print(patched_img.shape)
                 est_disp = models.distill(patched_img)
-                if epoch % 50 == 0:
+                if epoch % 20 == 0:
                     # visualize_disparity(img, original_disp[0])
                     # time.sleep(10)
-                    visualize_disparity(patched_img, est_disp[0])
+                    # stacked_mask = torch.stack([mask_t] * patched_img.shape[0], dim=0)
+                    # visualize_disparity(patched_img, est_disp[0])
+
+                    visualize_disparity_2(img, original_disp[0], patched_img, est_disp[0])
+
+
                 # Loss
 
                 # calculate the loss function here
@@ -205,7 +218,7 @@ def main():
                 loss = (
                     disp_loss
                     + nps_loss * 0.01
-                    + torch.max(tv_loss, torch.tensor(0.1).cuda()) * 0.005
+                    + torch.max(tv_loss, torch.tensor(0.1).cuda()) * 2.5
                 )
 
                 # ep_nps_loss += nps_loss.detach().cpu().numpy()
@@ -213,12 +226,34 @@ def main():
                 ep_disp_loss += disp_loss.detach().cpu().numpy()
                 ep_loss += loss.detach().cpu().numpy()
 
+
+                
+                losses.append(loss.item())
+                tv_losses.append(tv_loss.item())
+                disp_losses.append(disp_loss.item())
+                # Update plot
+                ax.clear()
+                ax.plot(losses, label='Loss')
+                ax.plot(tv_losses, label='TV Loss')
+                ax.plot(disp_losses, label='Disp Loss')
+                ax.set_xlabel('Epoch')
+                ax.set_ylabel('Loss')
+                ax.set_title('Training Loss Over Time')
+                ax.legend()
+                plt.pause(0.1)  # Pause to allow the plot to update
+
+                plt.show()
+
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
                 models.distill.zero_grad()
 
                 patch_cpu.data.clamp_(0, 1)  # keep patch in image range
+
+
+
+
 
                 del patch_t, loss, nps_loss, tv_loss, disp_loss
                 torch.cuda.empty_cache()
@@ -240,9 +275,11 @@ def main():
         print("  NPS LOSS: ", ep_nps_loss)
         print("   TV LOSS: ", ep_tv_loss)
 
+
         epoch_loss.append(ep_loss)
         epoch_disp_loss.append(ep_disp_loss)
         epoch_tv_loss.append(ep_tv_loss)
+
         if epoch == 0 or epoch == args.num_epochs - 1:
             np.save(
                 save_path + "/epoch_{}_patch.npy".format(str(epoch)), patch_cpu.data.numpy()
