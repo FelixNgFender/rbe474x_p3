@@ -15,6 +15,8 @@ import torch
 import torchvision.transforms.functional as F
 import torchvision.transforms as T
 
+import wandb
+
 from tqdm import tqdm
 import warnings
 
@@ -127,6 +129,17 @@ def main():
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, "min", patience=50
     )
+    
+    wandb.init(
+        project="RBE474x-pr3",
+        # track hyperparameters and run metadata
+        config={
+            "learning_rate": args.lr,
+            "batch_size": args.batch_size,
+            "num_epochs": args.num_epochs,
+        },
+    )
+    
     # Train
     print("===============================")
     print("Start training ...")
@@ -184,8 +197,7 @@ def main():
 
                 pad_and_mask = torch.cat((padded_patch.unsqueeze(0), padded_mask.unsqueeze(0)), dim=0) # trick to apply same transformation to both patch and mask
                 # transform patch and maybe the mask corresponding to the transformed patch(binary iamge)
-                patch_and_mask_t = mask_transform(pad_and_mask)
-                patch_t, mask_t = patch_and_mask_t[0], patch_and_mask_t[1]
+                patch_t, mask_t = mask_transform(pad_and_mask)
                 
                 #turn this off for now
                 patch_t = patch_jitter(patch_t)
@@ -194,13 +206,13 @@ def main():
                 patched_img = apply_patch_to_images(img, patch_t, mask_t)[0]
                 # print(patched_img.shape)
                 est_disp = models.distill(patched_img)
-                if epoch % 20 == 0 and i_batch == 0:
-                    # visualize_disparity(img, original_disp[0])
-                    # time.sleep(10)
-                    # stacked_mask = torch.stack([mask_t] * patched_img.shape[0], dim=0)
-                    # visualize_disparity(patched_img, est_disp[0])
+                # if epoch % 20 == 0 and i_batch == 0:
+                #     # visualize_disparity(img, original_disp[0])
+                #     # time.sleep(10)
+                #     # stacked_mask = torch.stack([mask_t] * patched_img.shape[0], dim=0)
+                #     # visualize_disparity(patched_img, est_disp[0])
 
-                    visualize_disparity_2(img, original_disp[0], patched_img, est_disp[0])
+                    # visualize_disparity_2(img, original_disp[0], patched_img, est_disp[0])
 
 
                 # Loss
@@ -218,15 +230,35 @@ def main():
                 loss = (
                     disp_loss
                     + nps_loss * 0.01
-                    + torch.max(tv_loss, torch.tensor(0.1).cuda()) * 2.5
+                    + torch.max(tv_loss, torch.tensor(0.1).cuda()) * .5
                 )
 
                 # ep_nps_loss += nps_loss.detach().cpu().numpy()
                 ep_tv_loss += torch.max(tv_loss, torch.tensor(0.1).cuda()).detach().cpu().numpy()
                 ep_disp_loss += disp_loss.detach().cpu().numpy()
                 ep_loss += loss.detach().cpu().numpy()
+                
+                if i_batch == 0:
+                    wandb_images = []
+                    for batch in range(min(args.batch_size, 16)):
+                        wandb_images.append(
+                            wandb.Image(
+                                    visualize_disparity_2(img[batch], original_disp[batch], patched_img[batch], est_disp[batch], display=False)
+                                )
+                            )
+                    wandb.log(
+                        {
+                            "images/train": wandb_images,
+                        }
+                    )
 
-
+                wandb.log(
+                    {
+                        "batchloss": loss.item(),
+                        "batchtv": tv_loss.item(),
+                        "batch_disp": disp_loss.item(),
+                    }
+                )
                 
                 losses.append(loss.item())
                 tv_losses.append(tv_loss.item())
@@ -266,15 +298,15 @@ def main():
         
         
         # Update plot
-        ax.clear()
-        ax.plot(losses, label='Loss')
-        ax.plot(tv_losses, label='TV Loss')
-        ax.plot(disp_losses, label='Disp Loss')
-        ax.set_xlabel('Batch')
-        ax.set_ylabel('Loss')
-        ax.set_title('Training Loss Over Time')
-        ax.legend()
-        plt.pause(0.1)  # Pause to allow the plot to update
+        # ax.clear()
+        # ax.plot(losses, label='Loss')
+        # ax.plot(tv_losses, label='TV Loss')
+        # ax.plot(disp_losses, label='Disp Loss')
+        # ax.set_xlabel('Batch')
+        # ax.set_ylabel('Loss')
+        # ax.set_title('Training Loss Over Time')
+        # ax.legend()
+        # plt.pause(0.1)  # Pause to allow the plot to update
 
         #if epoch == 0 or epoch == args.num_epochs - 1:
         np.save(
