@@ -86,17 +86,17 @@ def get_printable_colors(file):
     return colors
 
 def get_nps_score(patch : torch.Tensor, colors):
-    colors = colors.to(patch.device)
-    # print(colors.device, patch.device)
+    # colors = colors.to(patch.device)
+    # # print(colors.device, patch.device)
     
-    # Slow Implementation
-    loss = 0
-    t = time.time()
-    for y, x in zip(range(patch.shape[1]), range(patch.shape[2])):
-        loss += min([torch.norm(patch[:, y, x] - color) for color in colors])
-    print('Time taken for NPS Loss:', time.time() - t)
+    # # Slow Implementation
+    # loss = 0
+    # t = time.time()
+    # for y, x in zip(range(patch.shape[1]), range(patch.shape[2])):
+    #     loss += min([torch.norm(patch[:, y, x] - color) for color in colors])
+    # print('Time taken for NPS Loss:', time.time() - t)
 
-    return loss
+    return 0
 
 def get_tv_loss(patch: torch.Tensor):
     # print(patch.shape)

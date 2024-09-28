@@ -9,6 +9,8 @@ from utils.utils import makedirs, to_cuda_vars, format_time
 from patch_augment import *
 from utils.utils import *
 
+import matplotlib.pyplot as plt
+
 import torch
 import torchvision.transforms.functional as F
 import torchvision.transforms as T
@@ -76,11 +78,11 @@ def main():
     )
     mask_transform = T.Compose(
         [
-            T.RandomPerspective(distortion_scale=0.5, p=1.0),
-            T.RandomAffine(degrees=45, scale=(0.8, 1.2)),
+            T.RandomPerspective(distortion_scale=0.8, p=1.0),
+            T.RandomAffine(degrees=45, scale=(0.5, 2), translate=(0.5, 0.5)),
         ]
     )
-    patch_jitter = T.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.1)
+    patch_jitter = T.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.3)
         
 
     train_transform = T.Lambda(
@@ -113,7 +115,7 @@ def main():
 
     # Patch and Mask
     # Initialize a random patch image
-    patch_size = (3, 256, 256)
+    patch_size = (3, args.patch_size, args.patch_size)
     patch_cpu = torch.rand(patch_size, requires_grad=True)
     mask_cpu = torch.ones_like(patch_cpu)
 
@@ -129,6 +131,12 @@ def main():
     print("===============================")
     print("Start training ...")
     start_time = time.time()
+
+    # save loss values for plotting
+    epoch_loss = []
+    epoch_disp_loss = []
+    epoch_tv_loss = []
+
     for epoch in range(args.num_epochs):
         ep_nps_loss, ep_tv_loss, ep_loss, ep_disp_loss = 0, 0, 0, 0
         ep_time = time.time()
@@ -170,13 +178,18 @@ def main():
                 # transform patch and maybe the mask corresponding to the transformed patch(binary iamge)
                 patch_and_mask_t = mask_transform(pad_and_mask)
                 patch_t, mask_t = patch_and_mask_t[0], patch_and_mask_t[1]
-                patch_t = patch_jitter(patch_t)
+                
+                #turn this off for now
+                # patch_t = patch_jitter(patch_t)
 
                 # apply transformed patch to clean image
                 patched_img = apply_patch_to_images(img, patch_t, mask_t)[0]
                 # print(patched_img.shape)
                 est_disp = models.distill(patched_img)
-
+                if epoch % 50 == 0:
+                    # visualize_disparity(img, original_disp[0])
+                    # time.sleep(10)
+                    visualize_disparity(patched_img, est_disp[0])
                 # Loss
 
                 # calculate the loss function here
@@ -192,11 +205,11 @@ def main():
                 loss = (
                     disp_loss
                     + nps_loss * 0.01
-                    + torch.max(tv_loss, torch.tensor(0.1).cuda()) * 2.5
+                    + torch.max(tv_loss, torch.tensor(0.1).cuda()) * 0.005
                 )
 
-                ep_nps_loss += nps_loss.detach().cpu().numpy()
-                ep_tv_loss += tv_loss.detach().cpu().numpy()
+                # ep_nps_loss += nps_loss.detach().cpu().numpy()
+                ep_tv_loss += torch.max(tv_loss, torch.tensor(0.1).cuda()).detach().cpu().numpy()
                 ep_disp_loss += disp_loss.detach().cpu().numpy()
                 ep_loss += loss.detach().cpu().numpy()
 
@@ -226,12 +239,25 @@ def main():
         print(" DISP LOSS: ", ep_disp_loss)
         print("  NPS LOSS: ", ep_nps_loss)
         print("   TV LOSS: ", ep_tv_loss)
-        np.save(
-            save_path + "/epoch_{}_patch.npy".format(str(epoch)), patch_cpu.data.numpy()
-        )
-        np.save(
-            save_path + "/epoch_{}_mask.npy".format(str(epoch)), mask_cpu.data.numpy()
-        )
+
+        epoch_loss.append(ep_loss)
+        epoch_disp_loss.append(ep_disp_loss)
+        epoch_tv_loss.append(ep_tv_loss)
+        if epoch == 0 or epoch == args.num_epochs - 1:
+            np.save(
+                save_path + "/epoch_{}_patch.npy".format(str(epoch)), patch_cpu.data.numpy()
+            )
+            np.save(
+                save_path + "/epoch_{}_mask.npy".format(str(epoch)), mask_cpu.data.numpy()
+            )
+
+    print("Training finished")
+    # Plot loss
+    # plt.plot(epoch_loss, label="Total Loss")
+    # plt.plot(epoch_disp_loss, label="Disp Loss")
+    plt.plot(epoch_tv_loss, label="TV Loss")
+    plt.legend()
+    plt.savefig(save_path + "/loss.png")
 
 
 if __name__ == "__main__":
