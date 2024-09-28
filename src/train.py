@@ -86,7 +86,7 @@ def main():
         
 
     train_transform = T.Lambda(
-        lambda x: torch.stack([transform(image) for image in x], dim=0).to(x.device)
+        lambda x: torch.stack([transform(image) for image in x], dim=0)
     )
 
     train_set = LoadFromImageFile(
@@ -194,7 +194,7 @@ def main():
                 patched_img = apply_patch_to_images(img, patch_t, mask_t)[0]
                 # print(patched_img.shape)
                 est_disp = models.distill(patched_img)
-                if epoch % 20 == 0:
+                if epoch % 20 == 0 and i_batch == 0:
                     # visualize_disparity(img, original_disp[0])
                     # time.sleep(10)
                     # stacked_mask = torch.stack([mask_t] * patched_img.shape[0], dim=0)
@@ -231,18 +231,6 @@ def main():
                 losses.append(loss.item())
                 tv_losses.append(tv_loss.item())
                 disp_losses.append(disp_loss.item())
-                # Update plot
-                ax.clear()
-                ax.plot(losses, label='Loss')
-                ax.plot(tv_losses, label='TV Loss')
-                ax.plot(disp_losses, label='Disp Loss')
-                ax.set_xlabel('Epoch')
-                ax.set_ylabel('Loss')
-                ax.set_title('Training Loss Over Time')
-                ax.legend()
-                plt.pause(0.1)  # Pause to allow the plot to update
-
-                plt.show()
 
                 loss.backward()
                 optimizer.step()
@@ -250,10 +238,6 @@ def main():
                 models.distill.zero_grad()
 
                 patch_cpu.data.clamp_(0, 1)  # keep patch in image range
-
-
-
-
 
                 del patch_t, loss, nps_loss, tv_loss, disp_loss
                 torch.cuda.empty_cache()
@@ -279,14 +263,26 @@ def main():
         epoch_loss.append(ep_loss)
         epoch_disp_loss.append(ep_disp_loss)
         epoch_tv_loss.append(ep_tv_loss)
+        
+        
+        # Update plot
+        ax.clear()
+        ax.plot(losses, label='Loss')
+        ax.plot(tv_losses, label='TV Loss')
+        ax.plot(disp_losses, label='Disp Loss')
+        ax.set_xlabel('Batch')
+        ax.set_ylabel('Loss')
+        ax.set_title('Training Loss Over Time')
+        ax.legend()
+        plt.pause(0.1)  # Pause to allow the plot to update
 
-        if epoch == 0 or epoch == args.num_epochs - 1:
-            np.save(
-                save_path + "/epoch_{}_patch.npy".format(str(epoch)), patch_cpu.data.numpy()
-            )
-            np.save(
-                save_path + "/epoch_{}_mask.npy".format(str(epoch)), mask_cpu.data.numpy()
-            )
+        #if epoch == 0 or epoch == args.num_epochs - 1:
+        np.save(
+            save_path + "/epoch_{}_patch.npy".format(str(epoch)), patch_cpu.data.numpy()
+        )
+        np.save(
+            save_path + "/epoch_{}_mask.npy".format(str(epoch)), mask_cpu.data.numpy()
+        )
 
     print("Training finished")
     # Plot loss

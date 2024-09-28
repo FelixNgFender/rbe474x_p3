@@ -114,7 +114,7 @@ def get_tv_loss(adv_patch):
     return tv / torch.numel(adv_patch)
 
 def get_disp_loss(disp, est_disp, mask, target_disp):
-    print(disp.shape, mask.shape, target_disp)
+    # print(disp.shape, mask.shape, target_disp)
     mask = mask.unsqueeze(0)
     fake_disp = torch.mul((1 - mask), disp) + torch.mul(mask, target_disp)
     loss = torch.nn.functional.l1_loss(torch.mul(mask, fake_disp), torch.mul(mask, est_disp)).mean()
@@ -128,7 +128,7 @@ def visualize_disparity(img, disp):
     disp = disp.detach()#.squeeze().cpu().numpy()
     # disp = disp.resize(disp.shape[1], disp.shape[0]).cpu().numpy()
     
-    print(img.shape, disp.shape)
+    # print(img.shape, disp.shape)
     img = np.array(T.to_pil_image(T.resize(img[0], (img.shape[-1], img.shape[-2])))) 
     disp = T.resize(disp, (disp.shape[-1], disp.shape[-2])).squeeze().cpu().numpy()
 
@@ -148,7 +148,7 @@ def visualize_disparity_2(img, disp, img2, disp2):
     disp = disp.detach()#.squeeze().cpu().numpy()
     # disp = disp.resize(disp.shape[1], disp.shape[0]).cpu().numpy()
     
-    print(img.shape, disp.shape)
+    # print(img.shape, disp.shape)
     img = np.array(T.to_pil_image(T.resize(img[0], (img.shape[-1], img.shape[-2])))) 
     disp = T.resize(disp, (disp.shape[-1], disp.shape[-2])).squeeze().cpu().numpy()
 
@@ -166,7 +166,7 @@ def visualize_disparity_2(img, disp, img2, disp2):
     img2 = img2.detach().cpu()#.numpy()
     disp2 = disp2.detach()#.squeeze().cpu().numpy()
     
-    print(img2.shape, disp2.shape)
+    # print(img2.shape, disp2.shape)
     img2 = np.array(T.to_pil_image(T.resize(img2[0], (img2.shape[-1], img2.shape[-2])))) 
     disp2 = T.resize(disp2, (disp2.shape[-1], disp2.shape[-2])).squeeze().cpu().numpy()
 
