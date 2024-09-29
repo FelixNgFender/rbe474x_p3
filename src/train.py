@@ -81,10 +81,10 @@ def main():
     mask_transform = T.Compose(
         [
             T.RandomPerspective(distortion_scale=0.1, p=0.8),
-            T.RandomAffine(degrees=20, scale=(0.1225, 0.2025), translate=(0.1, 0.1)),
+            T.RandomAffine(degrees=20, scale=(0.35, 0.45), translate=(0.2, 0.05)),
         ]
     )
-    patch_jitter = T.ColorJitter(brightness=(0.95, 1.05), contrast=(0.9, 1.1), saturation=0.3, hue=0.3)
+    patch_jitter = T.ColorJitter(brightness=.05, contrast=.1, saturation=0.1, hue=0.1)
         
 
     train_transform = T.Lambda(
@@ -234,7 +234,7 @@ def main():
                 loss = (
                     disp_loss
                     + nps_loss * 0.01
-                    + torch.max(tv_loss, torch.tensor(0.1).cuda()) * .5
+                    + torch.max(tv_loss, torch.tensor(0.1).cuda()) * 2.5
                 )
 
                 # ep_nps_loss += nps_loss.detach().cpu().numpy()
@@ -251,7 +251,7 @@ def main():
                     wandb_images = []
                     # wandb_patches = []
                     wandb_test = []
-                    for batch in range(min(args.batch_size, 16)):
+                    for batch in range(min(args.batch_size, 8)):
                         img1 = visualize_disparity_2(img[batch], original_disp[batch], display=False)
                         img2 = visualize_disparity_2(patched_img[batch], est_disp[batch], display=False)
                         
@@ -319,6 +319,13 @@ def main():
         epoch_disp_loss.append(ep_disp_loss)
         epoch_tv_loss.append(ep_tv_loss)
         
+        wandb.log(
+            {
+                "epochloss": ep_loss,
+                "epochtv": ep_tv_loss,
+                "epoch_disp": ep_disp_loss
+            }
+        )
         
         # Update plot
         # ax.clear()
