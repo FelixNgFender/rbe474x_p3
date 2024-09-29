@@ -115,7 +115,7 @@ def get_tv_loss(adv_patch):
 
 def get_disp_loss(disp, est_disp, mask, target_disp):
     # print(disp.shape, mask.shape, target_disp)
-    mask = mask.unsqueeze(0)
+    # mask = mask.unsqueeze(0)
     fake_disp = torch.mul((1 - mask), disp) + torch.mul(mask, target_disp)
     loss = torch.nn.functional.l1_loss(torch.mul(mask, fake_disp), torch.mul(mask, est_disp)).mean()
     return loss
@@ -143,13 +143,22 @@ def visualize_disparity(img, disp):
     cv2.imshow('Image', img)
     cv2.waitKey(1)
 
-def visualize_disparity_2(img, disp, img2, disp2, display=True):
+def visualize_disparity_2(img, disp, display=True):
     img = img.detach().cpu()#.numpy()
+    img = np.array(T.to_pil_image(T.resize(img, (img.shape[-1], img.shape[-2])))) 
+    
+    disp_color = disp_viz(disp)
+
+    if display:
+        cv2.imshow('Disparity', disp_color)
+        cv2.imshow('Image', img)
+    
+    return np.concatenate([img, disp_color], axis=1)
+
+def disp_viz(disp):
     disp = disp.detach()#.squeeze().cpu().numpy()
     # disp = disp.resize(disp.shape[1], disp.shape[0]).cpu().numpy()
     
-    # print(img.shape, disp.shape)
-    img = np.array(T.to_pil_image(T.resize(img, (img.shape[-1], img.shape[-2])))) 
     disp = T.resize(disp, (disp.shape[-1], disp.shape[-2])).squeeze().cpu().numpy()
 
     # disparity_np = np.reshape(disparity_np, (disparity_np.shape[1], disparity_np.shape[0]))
@@ -158,33 +167,10 @@ def visualize_disparity_2(img, disp, img2, disp2, display=True):
 
     # Apply a color map for better visualization
     disp_color = cv2.applyColorMap(disp_normalized, cv2.COLORMAP_PLASMA)
-
-    if display:
-        cv2.imshow('Disparity', disp_color)
-        cv2.imshow('Image', img)
+    # print(disp_color.shape)
+    return disp_color
 
 
-    img2 = img2.detach().cpu()#.numpy()
-    disp2 = disp2.detach()#.squeeze().cpu().numpy()
-    
-    # print(img2.shape, disp2.shape)
-    img2 = np.array(T.to_pil_image(T.resize(img2, (img2.shape[-1], img2.shape[-2])))) 
-    disp2 = T.resize(disp2, (disp2.shape[-1], disp2.shape[-2])).squeeze().cpu().numpy()
-
-    disp2_normalized = cv2.normalize(disp2, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-
-    # Apply a color map for better visualization
-    disp2_color = cv2.applyColorMap(disp2_normalized, cv2.COLORMAP_PLASMA)
-
-    if display:
-        cv2.imshow('Disparity2', disp2_color)
-        cv2.imshow('Image2', img2)
-        cv2.waitKey(1)
-    
-    im1 = np.concatenate([img, disp_color], axis=1)
-    im2 = np.concatenate([img2, disp2_color], axis=1)
-    
-    return np.concatenate([im1, im2], axis=0)
 
 
 

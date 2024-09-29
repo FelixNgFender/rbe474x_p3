@@ -206,6 +206,9 @@ def main():
                 patched_img = apply_patch_to_images(img, patch_t, mask_t)[0]
                 # print(patched_img.shape)
                 est_disp = models.distill(patched_img)
+                fake_disp = torch.mul((1 - mask_t[0]), original_disp) + torch.mul(mask_t[0], args.target_disp)
+                #print(mask_t.shape, original_disp.shape, est_disp.shape, fake_disp.shape, torch.max(est_disp), torch.max(fake_disp))
+                #est_disp = fake_disp
                 # if epoch % 20 == 0 and i_batch == 0:
                 #     # visualize_disparity(img, original_disp[0])
                 #     # time.sleep(10)
@@ -213,6 +216,7 @@ def main():
                 #     # visualize_disparity(patched_img, est_disp[0])
 
                     # visualize_disparity_2(img, original_disp[0], patched_img, est_disp[0])
+                    
 
 
                 # Loss
@@ -224,7 +228,7 @@ def main():
                 nps_loss = get_nps_score(patch_t, colors)
                 tv_loss = get_tv_loss(patch)
                 disp_loss = get_disp_loss(
-                    original_disp, est_disp, mask_t, args.target_disp
+                    original_disp, est_disp, mask_t[0], args.target_disp
                 )
                 # constants taken from paper
                 loss = (
@@ -239,16 +243,35 @@ def main():
                 ep_loss += loss.detach().cpu().numpy()
                 
                 if i_batch == 0:
+                    wandb_patch = wandb.Image(np.concatenate([
+                        T.functional.to_pil_image(patch_cpu),
+                        T.functional.to_pil_image(patch_t.cpu()),
+                    ], axis=0))
+                    
                     wandb_images = []
+                    # wandb_patches = []
+                    wandb_test = []
                     for batch in range(min(args.batch_size, 16)):
+                        img1 = visualize_disparity_2(img[batch], original_disp[batch], display=False)
+                        img2 = visualize_disparity_2(patched_img[batch], est_disp[batch], display=False)
+                        
+                        img3 = np.concatenate([
+                                    disp_viz(torch.mul(mask_t[0], fake_disp[batch])), 
+                                     disp_viz(torch.mul(mask_t[0], est_disp[batch]))
+                            ], axis=1)
+                        
                         wandb_images.append(
                             wandb.Image(
-                                    visualize_disparity_2(img[batch], original_disp[batch], patched_img[batch], est_disp[batch], display=False)
+                                    np.concatenate([img1, img2], axis=0)
                                 )
                             )
+                        wandb_test.append(wandb.Image(img3))
+                        
                     wandb.log(
                         {
                             "images/train": wandb_images,
+                            "images/patch": wandb_patch,
+                            "images/test": wandb_test,
                         }
                     )
 
