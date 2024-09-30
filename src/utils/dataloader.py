@@ -91,8 +91,8 @@ class SingleImageLoader(BaseDataset):
         image = self.load_image(self.img_path)
         image = np.expand_dims(image, axis=0)
         if self.transform is not None:
-            image = self.transform(image)
-        sample = {"left": image[0]}
+            image = self.transform(image[0])
+        sample = {"left": image}
         return sample
 
     def __len__(self):
