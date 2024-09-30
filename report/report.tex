@@ -172,7 +172,7 @@
 % http://www.ctan.org/pkg/amsmath
 
 
-
+\usepackage[utf8]{inputenc}
 
 
 % *** SPECIALIZED LIST PACKAGES ***
@@ -432,11 +432,7 @@ Color jitter is done through TorchVision's ColorJitter method. The parameters ar
 \section{Part 2 - Patch training and validation}
 Training is done on the augmented dataset. 
 
-The model is trained for as many epoch as it can go. The optimizer used is Adam with a learning rate of 1e-2.with a batch size of 128
-\begin{itemize}
-  \item Batch size: 128
-  \item Learning rate: 1e-2
-\end{itemize}
+The model is trained for as many epoch as it can go. The optimizer used is Adam. Each run that we have run is tuned differently on hyperparameters.
 
 \subsection{Loss function}
 Loss function used for training is the Disparity loss and total variation (TV) loss. The disparity loss is used to measure the difference between the predicted disparity map and the ground truth disparity map. In this case, loss is only calculated in the region of the augmented patch, and the ground truth is defined as a hyperparameter of target patch depth.
@@ -446,7 +442,97 @@ The TV loss is used to measure the smoothness of the disparity map.
 In our case, the coefficient of the disparity loss is 1, and the coefficient of the TV loss is 2.5.
 
 \subsection{Results}
-Below are some results of the generated dataset:
+% Below are some general results for 70 disparities:
+% \begin{figure}[!h]
+%   \centering
+%   \includegraphics[scale=0.25]{./images/results/result1.png}
+%   \caption{Image 1, before and after adding patch}
+% \end{figure}  
+% \begin{figure}[!h]
+%     \centering
+%     \includegraphics[scale=0.25]{./images/results/result2.png}
+%     \caption{Image 2, before and after adding patch}
+%   \end{figure} 
+
+\subsubsection{First run}
+For our first run, we used:
+\begin{itemize}
+  \item Batch size: 256
+  \item Learning rate: 1e-2
+  \item Target disparity: 70
+\end{itemize}
+
+This is ran until epoch 779. Below is the loss plot:
+\begin{figure}[!h]
+    \centering
+    \includegraphics[scale=0.2]{./images/results/run1.png}
+    \caption{Plot for first run}
+  \end{figure} 
+
+\subsubsection{Second run}
+For our second run, we used:
+\begin{itemize}
+  \item Batch size: 128
+  \item Learning rate: 1e-1
+  \item Target disparity: 70
+\end{itemize}
+
+This is ran until epoch 929. Below is the loss plot:
+\begin{figure}[!h]
+    \centering
+    \includegraphics[scale=0.15]{./images/results/run2.png}
+    \caption{Plot for second run}
+  \end{figure} 
+
+\subsubsection{Third run}
+For our third run, we used:
+\begin{itemize}
+  \item Batch size: 128
+  \item Learning rate: 1e-2
+  \item Target disparity: 10
+\end{itemize}
+
+This is ran until epoch 970. Below is the loss plot:
+\begin{figure}[!h]
+    \centering
+    \includegraphics[scale=0.15]{./images/results/run3.png}
+    \caption{Plot for third run}
+  \end{figure} 
+
+\section{Part 3 - Real world testing}
+For a control run, we held up an empty piece of paper to the camera, and the model was able to predict the disparity map of the paper. The disparity map is shown in the file "control.mp4".
+
+\subsubsection{First run}
+For our first run, we used:
+\begin{itemize}
+  \item Batch size: 256
+  \item Learning rate: 1e-2
+  \item Target disparity: 70
+\end{itemize}
+
+The example video for this is shown in the file Run1.mp4 and Run1-2.mp4
+
+\subsubsection{Second run}
+For our second run, we used:
+\begin{itemize}
+  \item Batch size: 128
+  \item Learning rate: 1e-1
+  \item Target disparity: 70
+\end{itemize}
+
+The example video for this is shown in the file Run2.mp4 and Run2-2.mp4
+
+\subsubsection{Third run}
+For our third run, we used:
+\begin{itemize}
+  \item Batch size: 128
+  \item Learning rate: 1e-2
+  \item Target disparity: 10
+\end{itemize}
+
+The example video for this is shown in the file Run3.mp4 and Run3-2.mp4
+
+
 % \begin{figure}[!h]
 %   \centering
 %   \includegraphics[scale=0.25]{./images/output_1.png}
@@ -483,63 +569,31 @@ Below are some results of the generated dataset:
 
 % 1. Training loss curve (loss vs epoch count)
 
-\section{Part 3}
+\section{Fast Gradient Sign Method}
 % 3. Network architecture diagram.
-For this part, we are performing instance segmentation to find the regions of the image/video that contain the window.
-\subsection {Network architecture}
-We used a modified unet for instance segmentation. The output had 4 classes, which assumed that there were 3 windows and 1 background.
-The output of the model was permuted so that the order of the classes didn't matter, since we wanted to be agnostic to which class was which window.
+For this part, we will talk about how fast gradient sign method (FGSM) can be used to attacking depth networks. 
 
-The architecture diagram for this is depicted in figure 6.
 
-\subsection{Implementation}
+FGSM uses the gradients of the neural network to generate adversariality. For an image, it uses the gradients of the loss to create a new image that maximises the loss. This new image is called the adversarial image. The goal of this image generation is to cause wrong predictions. Despite its simplicity, it effectively highlights the vulnerability of deep networks to small, targeted perturbations.
+
+
+\subsection{FGSM Attack Process on Deep Networks}
+The FGSM attack process on deep networks is as follows:
+
+When applied to a deep network, such as those used for image recognition or natural language processing, FGSM creates adversarial examples that appear almost identical to the original inputs but lead to incorrect predictions.
+The strength of the adversarial attack is governed by the epsilon parameter:
+
+A small epsilon
+ produces smaller perturbation, making it harder for humans to notice the change, but it will be harder to fool the model.
+A larger epsilon
+ will cause the perturbation to become more visible, reducing the stealthiness of the attack.
+
+\subsection{FGSM Attack, adversarial patches}
+In contrast to pixel-level perturbations across the entire image, as in traditional FGSM, we could also keep the perturbation within a confined region of the image: the patch. The patch is initialized with random values. In traning, FGSM is used to modify the patch:
+
+Patch Optimization: Use the FGSM method to update the patch's pixel values by computing the gradient of the loss with respect to the patch region, not the entire image. The perturbation is applied only to the patch while keeping the rest of the image unchanged.
+
 % 4. Explain the loss function you used for training.
-The model was trained on the dataset generated in Part 1. The hyperparameters used for training are the same as in Part 2, and is shown in Table 1. Loss function used is depicted below.
-
-\subsection{Loss function}
-For instance segmentation, we trained our network on three different loss functions, each with different goals in mind. Initially, we tried Cross Entropy.
-
-Cross Entropy is a common loss function for classification tasks, and is used to measure the difference between two probability distributions.
-In this case, it is used to measure the difference between the predicted mask and the ground truth mask.
-
-However, this loss function does not take into account the spatial information of the image, and is not ideal for instance segmentation.
-
-Next, we tried Dice Loss. Dice Loss is a loss function that is used to measure the similarity between two samples.
-It is used in this case to measure the similarity between the predicted mask and the ground truth mask.
-
-Dice Loss is better suited for instance segmentation than Cross Entropy, as it is more robust to class imbalance,
-which in this case is due to more single-instance images.
-Finally, we tried a combination of Cross Entropy and Dice Loss. The combined loss function is a weighted sum of the two loss functions.
-
-% 6. Tabulate the hyperparameters you used for training. Learning rate, optimizer, etc.
-
-\subsection{Results}
-For instance segmentation, the failure cases were similar to the semantic model,
-but also included cases where the model couldn't distinguish between the individual instances too well,
-and it found the "loophole" of just predicting the same class for all instances, or predicting a mixture of two classes
-which ends up being better on average.
-
-Results for the model are in the vdeo "part3.mp4". Below are the loss curve per epoch plot:
-\begin{figure}[!h]
-
-  \centering
-  \includegraphics[scale=0.5]{./images/batchtraininstance.png}
-  \caption{Training loss curve, batch}
-\end{figure}
-
-\begin{figure}[!h]
-  \centering
-  \includegraphics[scale=0.5]{./images/batchevalinstance.png}
-  \caption{Evaluate loss curve, batch}
-
-\end{figure}
-
-\begin{figure}[!h]
-
-  \centering
-  \includegraphics[scale=0.5]{./images/epochvalinstance.png}
-  \caption{Evaluate loss curve, epoch}
-\end{figure}
 
 
 % An example of a floating figure using the graphicx package.
